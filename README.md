@@ -62,10 +62,11 @@ Training
 Run training with either backbone:
 ```
 # Simple CNN
-python train_keypoints.py --train_json train.json --val_json val.json --model simple
+python src/train_keypoints.py --train_json data/processed/train.json --val_json data/processed/val.json --model simple
 
 # MobileNetV2-style inverted bottleneck
-python train_keypoints.py --train_json train.json --val_json val.json --model mobile
+python src/train_keypoints.py --train_json data/processed/train.json --val_json data/processed/val.json --model mobile
+
 ```
 
 Example output:

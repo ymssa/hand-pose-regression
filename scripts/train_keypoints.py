@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, json, math, random
+import os, json, random
 from pathlib import Path
 from typing import List, Tuple
 
@@ -9,8 +9,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
-
 from tqdm import tqdm
+
+# >>> NEW: import exported models
+from models import SimpleCNN, MobileLiteRegressor
 
 
 # -------------------------
@@ -73,96 +75,6 @@ class KeypointDataset(Dataset):
 
 
 # -------------------------
-# Models
-# -------------------------
-class SimpleCNN(nn.Module):
-    """Compact CNN for 2D keypoint regression."""
-    def __init__(self, num_keypoints: int = 21):
-        super().__init__()
-        out_dim = num_keypoints * 2
-        self.backbone = nn.Sequential(
-            nn.Conv2d(3, 32, 3, 2, 1), nn.BatchNorm2d(32), nn.ReLU(inplace=True),   # 224->112
-            nn.Conv2d(32, 64, 3, 1, 1), nn.BatchNorm2d(64), nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),                                                         # 112->56
-            nn.Conv2d(64, 128, 3, 1, 1), nn.BatchNorm2d(128), nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),                                                         # 56->28
-            nn.Conv2d(128, 128, 3, 1, 1), nn.BatchNorm2d(128), nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),                                                         # 28->14
-            nn.Conv2d(128, 256, 3, 1, 1), nn.BatchNorm2d(256), nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d(1),
-        )
-        self.head = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(256, 256), nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(256, out_dim),
-        )
-
-    def forward(self, x):
-        x = self.backbone(x)
-        return self.head(x)
-
-
-class InvertedBottleneck(nn.Module):
-    """MobileNetV2-style block."""
-    def __init__(self, in_ch, out_ch, expansion=4, stride=1):
-        super().__init__()
-        hid = in_ch * expansion
-        self.use_res = (stride == 1 and in_ch == out_ch)
-        self.expand = nn.Sequential(
-            nn.Conv2d(in_ch, hid, 1, 1, 0, bias=False),
-            nn.BatchNorm2d(hid),
-            nn.ReLU6(inplace=True),
-        ) if expansion != 1 else nn.Identity()
-        self.dw = nn.Sequential(
-            nn.Conv2d(hid, hid, 3, stride, 1, groups=hid, bias=False),
-            nn.BatchNorm2d(hid),
-            nn.ReLU6(inplace=True),
-        )
-        self.project = nn.Sequential(
-            nn.Conv2d(hid, out_ch, 1, 1, 0, bias=False),
-            nn.BatchNorm2d(out_ch),
-        )
-
-    def forward(self, x):
-        y = self.expand(x)
-        y = self.dw(y)
-        y = self.project(y)
-        return x + y if self.use_res else y
-
-
-class MobileLiteRegressor(nn.Module):
-    """A slightly stronger backbone using inverted bottlenecks; still light."""
-    def __init__(self, num_keypoints: int = 21):
-        super().__init__()
-        out_dim = num_keypoints * 2
-        self.stem = nn.Sequential(
-            nn.Conv2d(3, 32, 3, 2, 1, bias=False), nn.BatchNorm2d(32), nn.ReLU6(inplace=True),  # 224->112
-        )
-        self.stage = nn.Sequential(
-            InvertedBottleneck(32, 32, expansion=4, stride=1),
-            InvertedBottleneck(32, 48, expansion=4, stride=2),  # 112->56
-            InvertedBottleneck(48, 48, expansion=4, stride=1),
-            InvertedBottleneck(48, 64, expansion=4, stride=2),  # 56->28
-            InvertedBottleneck(64, 64, expansion=4, stride=1),
-            InvertedBottleneck(64, 96, expansion=4, stride=2),  # 28->14
-            InvertedBottleneck(96, 128, expansion=4, stride=2), # 14->7
-        )
-        self.head = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(128, 256), nn.ReLU6(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(256, out_dim),
-        )
-
-    def forward(self, x):
-        x = self.stem(x)
-        x = self.stage(x)
-        return self.head(x)
-
-
-# -------------------------
 # Loss & Metric
 # -------------------------
 def l1_keypoint_loss(pred, target):
@@ -213,7 +125,6 @@ def evaluate(model, loader, device, pck_thr, epoch, epochs):
     return loss_sum / n, pck_sum / n
 
 
-
 def main(
     train_json="train.json",
     val_json="val.json",
@@ -237,10 +148,14 @@ def main(
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     num_kps = len(train_ds.items[0]["keypoints"]) // 2
+
+    # >>> NEW: build model via imports
     if model_type == "mobile":
         model = MobileLiteRegressor(num_keypoints=num_kps).to(device)
-    else:
+    elif model_type == "simple":
         model = SimpleCNN(num_keypoints=num_kps).to(device)
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
 
     opt = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
@@ -260,6 +175,7 @@ def main(
             best_val = val_loss
             torch.save({"epoch": ep, "model": model.state_dict(), "opt": opt.state_dict()}, outdir / "best.pth")
             print("  ↳ saved best.pth")
+
 
 if __name__ == "__main__":
     import argparse

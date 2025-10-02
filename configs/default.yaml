@@ -1,0 +1,15 @@
+data:
+  train_json: data/processed/train.json
+  val_json: data/processed/val.json
+  image_size: 224
+train:
+  model: mobile          # simple | mobile
+  epochs: 50
+  batch_size: 32
+  lr: 3e-4
+  weight_decay: 1e-4
+  num_workers: 4
+eval:
+  pck_thr: 0.05
+out:
+  dir: runs/keypoints
