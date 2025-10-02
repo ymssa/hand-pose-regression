@@ -22,63 +22,63 @@ Clone the repository:
 ```bash
 git clone https://github.com/DataMas/hand-pose-regression.git
 cd hand-pose-regression
-Create and activate a virtual environment:
+```
 
-bash
-Copy code
+Create and activate a virtual environment:
+```
 python -m venv venv
 source venv/bin/activate   # macOS/Linux
 venv\Scripts\activate      # Windows
-Install dependencies:
+```
 
-bash
-Copy code
+Install dependencies:
+```
 pip install -r requirements.txt
 Dataset Preparation
-Download the FreiHAND dataset and preprocess it:
+```
 
-bash
-Copy code
+Download the FreiHAND dataset and preprocess it:
+```
 python scripts/freihand_to_json.py
 python scripts/split_dataset.py
+```
+
 This generates:
 
-train.json
+- train.json
 
-val.json
+- val.json
 
 Each entry contains:
-
-json
-Copy code
+```
 {
   "image_path": "data/rgb/00000000.jpg",
   "keypoints": [x1, y1, x2, y2, ...],
   "source": "FreiHAND"
 }
+```
+
 Training
 Run training with either backbone:
-
-bash
-Copy code
+```
 # Simple CNN
 python train_keypoints.py --train_json train.json --val_json val.json --model simple
 
 # MobileNetV2-style inverted bottleneck
 python train_keypoints.py --train_json train.json --val_json val.json --model mobile
-Example output:
+```
 
-ruby
-Copy code
+Example output:
+```
 Train 3/50: 100%|████████████████████████| 915/915 [00:12<00:00, 76.11it/s, loss=0.0421]
 Eval  3/50: 100%|████████████████████████| 102/102 [00:01<00:00, 85.31it/s, loss=0.0385]
 [003/050] train=0.0421 | val=0.0385 | PCK@0.05=72.3% | lr=2.99e-04
+```
+
 Results
 Model checkpoints are saved in runs_keypoints/:
 
-last.pth
-
-best.pth
+- best.pth
 
 Evaluation reports L1 loss and PCK accuracy.
 
@@ -93,8 +93,6 @@ License
 MIT License. See LICENSE for details.
 
 Acknowledgments
-FreiHAND dataset
-
-MobileNetV2 authors for the inverted bottleneck design
-
-PyTorch team
+- FreiHAND dataset
+- MobileNetV2 authors for the inverted bottleneck design
+- PyTorch team
