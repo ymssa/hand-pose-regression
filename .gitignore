@@ -1,0 +1,15 @@
+# Data
+data/
+*.json
+*.txt
+
+# Venv
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Mac / system
+.DS_Store
