@@ -13,8 +13,6 @@ It supports both a simple CNN and a MobileNetV2-style inverted bottleneck model,
   - L1 regression loss
   - PCK evaluation metric
   - Cosine Annealing LR scheduler
-- Progress bars via tqdm
-- Model checkpoint saving (last.pth and best.pth)
 
 ## Setup
 
